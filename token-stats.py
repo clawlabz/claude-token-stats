@@ -188,14 +188,13 @@ def parse_model_name(m):
 
 
 def model_short(model_tokens):
-    """model_tokens: {model_name: total_tokens}  ->  'Opus4.6(44M)+Sonnet4.6(2M)'"""
-    parts = []
-    for m, tokens in sorted(model_tokens.items(), key=lambda x: -x[1]):
+    """model_tokens: {model_name: total_tokens}  ->  'Opus4.6+Sonnet4.6'"""
+    seen = []
+    for m in sorted(model_tokens.keys(), key=lambda m: -model_tokens[m]):
         label = parse_model_name(m)
-        if label is None:
-            continue
-        parts.append(f"{label}({fmt_tok(tokens)})")
-    return "+".join(parts) or "?"
+        if label and label not in seen:
+            seen.append(label)
+    return "+".join(seen) or "?"
 
 
 # ── Views ─────────────────────────────────────────────────────────────────────

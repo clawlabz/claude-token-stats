@@ -151,7 +151,7 @@ def load_all_records(project_filter=None):
 # ── Aggregation helpers ───────────────────────────────────────────────────────
 
 def agg_key(records, key_fn):
-    agg = defaultdict(lambda: {"inp": 0, "out": 0, "cc": 0, "cr": 0, "models": set(), "sessions": set()})
+    agg = defaultdict(lambda: {"inp": 0, "out": 0, "cc": 0, "cr": 0, "model_tokens": defaultdict(int), "sessions": set()})
     for r in records:
         k = key_fn(r)
         a = agg[k]
@@ -159,7 +159,8 @@ def agg_key(records, key_fn):
         a["out"] += r["out"]
         a["cc"] += r["cc"]
         a["cr"] += r["cr"]
-        a["models"].add(r["model"])
+        total = r["inp"] + r["cc"] + r["cr"] + r["out"]
+        a["model_tokens"][r["model"]] += total
         a["sessions"].add(r["session_id"])
     return agg
 
@@ -170,20 +171,31 @@ def fmt_num(n):
     return f"{n:>13,}"
 
 
-def model_short(models):
-    names = []
-    for m in sorted(models):
-        if m == "<synthetic>":
+def parse_model_name(m):
+    """claude-opus-4-6-thinking -> Opus4.6✦  |  claude-sonnet-4-6 -> Sonnet4.6"""
+    if m == "<synthetic>":
+        return None
+    thinking = m.endswith("-thinking")
+    m = m.replace("-thinking", "")
+    parts = m.split("-")  # ['claude', 'opus', '4', '6']
+    if len(parts) >= 4:
+        family = parts[1].capitalize()   # opus -> Opus
+        version = f"{parts[2]}.{parts[3]}"  # 4.6
+        label = f"{family}{version}"
+    else:
+        label = m
+    return label + ("✦" if thinking else "")
+
+
+def model_short(model_tokens):
+    """model_tokens: {model_name: total_tokens}  ->  'Opus4.6(44M)+Sonnet4.6(2M)'"""
+    parts = []
+    for m, tokens in sorted(model_tokens.items(), key=lambda x: -x[1]):
+        label = parse_model_name(m)
+        if label is None:
             continue
-        if "opus" in m:
-            names.append("Opus")
-        elif "sonnet" in m:
-            names.append("Sonnet")
-        elif "haiku" in m:
-            names.append("Haiku")
-        else:
-            names.append(m.split("-")[1] if "-" in m else m)
-    return "+".join(sorted(set(names))) or "?"
+        parts.append(f"{label}({fmt_tok(tokens)})")
+    return "+".join(parts) or "?"
 
 
 # ── Views ─────────────────────────────────────────────────────────────────────
@@ -219,7 +231,7 @@ def view_daily(records, days=30):
         total_inp = a["inp"] + a["cc"] + a["cr"]
         total_all = total_inp + a["out"]
         hr = hit_ratio(a["inp"], a["cc"], a["cr"])
-        models = model_short(a["models"])
+        models = model_short(a["model_tokens"])
         nsess = len(a["sessions"])
         print(f"{d:<12} {nsess:>5} {fmt_tok(total_inp):>11} {fmt_tok(a['out']):>9} {hr:>11.1f}% {fmt_tok(total_all):>10} ${c:>10.4f}  {models}")
 
@@ -281,7 +293,7 @@ def view_sessions(records, target_date):
         total_inp = a["inp"] + a["cc"] + a["cr"]
         total_all = total_inp + a["out"]
         hr = hit_ratio(a["inp"], a["cc"], a["cr"])
-        models = model_short(a["models"])
+        models = model_short(a["model_tokens"])
         start = times[key]["start"]
         time_str = start.strftime("%H:%M") if start else "?"
         msg_count = sum(1 for r in day_records if (r["project"], r["session_id"]) == key)
@@ -309,17 +321,18 @@ def view_model_breakdown(records, days=30):
     agg = agg_key(records, lambda r: r["model"])
 
     print(f"\nModel breakdown (last {days} days)")
-    print("─" * 85)
-    print(f"{'Model':<35} {'TotalInput':>11} {'Output':>9} {'Total':>9} {'Cost(USD)':>11}")
-    print("─" * 85)
+    print("─" * 105)
+    print(f"{'Short':<20} {'Model ID':<35} {'TotalInput':>11} {'Output':>9} {'Total':>9} {'Cost(USD)':>11}")
+    print("─" * 105)
     for m in sorted(agg.keys()):
-        if m == "<synthetic>":
+        if m in ("<synthetic>", "unknown"):
             continue
         a = agg[m]
         c = cost(a["inp"], a["out"], a["cc"], a["cr"])
         total_inp = a["inp"] + a["cc"] + a["cr"]
         total_all = total_inp + a["out"]
-        print(f"{m:<35} {fmt_tok(total_inp):>11} {fmt_tok(a['out']):>9} {fmt_tok(total_all):>9} ${c:>10.4f}")
+        label = parse_model_name(m) or m
+        print(f"{label:<20} {m:<35} {fmt_tok(total_inp):>11} {fmt_tok(a['out']):>9} {fmt_tok(total_all):>9} ${c:>10.4f}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

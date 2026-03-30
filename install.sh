@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-BASE="https://raw.githubusercontent.com/clawlabz/claude-token-stats/main"
+BASE="https://raw.githubusercontent.com/clawlabz/token-stats/main"
 
 mkdir -p ~/.claude/scripts ~/.claude/commands
 

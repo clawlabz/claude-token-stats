@@ -6,7 +6,7 @@ Run the following (auto-downloads script on first use if missing):
 
 ```bash
 SCRIPT=~/.claude/scripts/token-stats.py
-[ -f "$SCRIPT" ] || (mkdir -p ~/.claude/scripts && curl -fsSL https://raw.githubusercontent.com/clawlabz/claude-token-stats/main/token-stats.py -o "$SCRIPT")
+[ -f "$SCRIPT" ] || (mkdir -p ~/.claude/scripts && curl -fsSL https://raw.githubusercontent.com/clawlabz/token-stats/main/token-stats.py -o "$SCRIPT")
 python3 "$SCRIPT" $ARGUMENTS
 ```
 

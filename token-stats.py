@@ -173,6 +173,8 @@ def fmt_num(n):
 def model_short(models):
     names = []
     for m in sorted(models):
+        if m == "<synthetic>":
+            continue
         if "opus" in m:
             names.append("Opus")
         elif "sonnet" in m:
@@ -311,6 +313,8 @@ def view_model_breakdown(records, days=30):
     print(f"{'Model':<35} {'TotalInput':>11} {'Output':>9} {'Total':>9} {'Cost(USD)':>11}")
     print("─" * 85)
     for m in sorted(agg.keys()):
+        if m == "<synthetic>":
+            continue
         a = agg[m]
         c = cost(a["inp"], a["out"], a["cc"], a["cr"])
         total_inp = a["inp"] + a["cc"] + a["cr"]
